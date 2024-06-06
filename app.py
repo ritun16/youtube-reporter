@@ -28,9 +28,10 @@ async def main():
     file_name = './temp_data/{}.mp3'.format(uuid.uuid4().hex)    
     yt_reporter = YouTubeReporter(openai_api_key, youtube_link, file_name)
 
-    status, stream_response = await yt_reporter.get_report()
+    status, stream_response, meta_details = await yt_reporter.get_report()
     #streamed_text = ""
     if status == "SUCCESS":
+        st.session_state.streamed_text = st.session_state.streamed_text + meta_details
         async for chunk in stream_response:
             chunk_content = chunk.choices[0].delta.content
             if chunk_content is not None:
