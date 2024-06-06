@@ -19,7 +19,7 @@ class YouTubeReporter(object):
         
     async def get_size(self):
         file_size = round(os.path.getsize(self.file_name)/(1024*1024), 2)
-        if file_size < 25:
+        if file_size < cfg.VIDEO_SIZE:
             return True
         else:
             return False
