@@ -13,6 +13,8 @@ st.set_page_config(
 )
 
 st.title("YouTube Video Reporter")
+if "streamed_text" not in st.session_state:
+    st.session_state.streamed_text = ""
 
 with st.sidebar:
     openai_api_key = st.text_input("OpenAI API Key", type="password")
@@ -27,18 +29,25 @@ async def main():
     yt_reporter = YouTubeReporter(openai_api_key, youtube_link, file_name)
 
     status, stream_response = await yt_reporter.get_report()
-    streamed_text = ""
+    #streamed_text = ""
     if status == "SUCCESS":
         async for chunk in stream_response:
             chunk_content = chunk.choices[0].delta.content
             if chunk_content is not None:
-                streamed_text = streamed_text + chunk_content
+                #streamed_text = streamed_text + chunk_content
+                st.session_state.streamed_text = st.session_state.streamed_text + chunk_content
                 #print(chunk_content, end="")
                 await asyncio.sleep(0.05)
-                markdown_output.markdown(streamed_text)
+                markdown_output.markdown(st.session_state.streamed_text)
+        st.download_button(
+                label="Download Report",
+                data=st.session_state.streamed_text,
+                file_name="report.md")
+        st.session_state.streamed_text = ""
     else:
         st.error(stream_response)
         print(status, stream_response)
+        st.session_state.streamed_text = ""
 
 if generate_report:
     if openai_api_key.strip() == "" or youtube_link.strip() == "":
