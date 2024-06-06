@@ -13,6 +13,9 @@ class YouTubeReporter(object):
         self._client = AsyncOpenAI(api_key=openai_api_key)
         self.yt_link = yt_link
         self.file_name = file_name
+        self.yt_video_details = dict()
+        self.meta_details = "| Title           | Views   | Length     | Rating | Author | Published Date   | Keywords      |\n"
+        self.meta_details += "|----------------|---------|------------|--------|--------|------------------|---------------|\n"
         
     async def get_size(self):
         file_size = round(os.path.getsize(self.file_name)/(1024*1024), 2)
@@ -21,15 +24,31 @@ class YouTubeReporter(object):
         else:
             return False
         
+    async def convert_seconds(self, seconds):
+        hours = seconds // 3600
+        minutes = (seconds % 3600) // 60
+        remaining_seconds = seconds % 60
+        return "{} hours {} minutes {} seconds".format(hours, minutes, remaining_seconds)
+        
     async def get_transcript(self):
         try:
-            yt_trans = YouTube(self.yt_link).streams.filter(only_audio=True)[0].download(filename=self.file_name)
+            yt_obj = YouTube(self.yt_link)
+            yt_trans = yt_obj.streams.filter(only_audio=True)[0].download(filename=self.file_name)
             print("Youtube video is downloaded successfully!")
             file_size = await self.get_size()
             if not file_size:
                 if os.path.isfile(yt_trans):
                     os.remove(yt_trans)
                 return "ERROR", "Only supports {}MB of file size as of now. Equivalant to approximately {} minutes of video. Please try again with smaller videos!".format(cfg.VIDEO_SIZE, cfg.VIDEO_LENGTH)
+            self.yt_video_details = {
+                "Title": str(yt_obj.title),
+                "Views": str(yt_obj.views),
+                "Length": await self.convert_seconds(yt_obj.length),
+                "Rating": str(yt_obj.rating),
+                "Author": str(yt_obj.author),
+                "Published Date": yt_obj.publish_date.strftime("%A, %B %d, %Y at %I:%M %p"),
+                "Keywords": ", ".join(yt_obj.keywords),
+            }
         except Exception as error:
             print("Youtube video download failed. Error: {}".format(str(error)))
             return "ERROR", "Youtube video download failed. Check the link is valid and please try again!"
@@ -56,16 +75,25 @@ class YouTubeReporter(object):
                               temperature=cfg.LLM_TEMP,
                               messages=[
                                 {"role": "system", "content": REPORT_GENERATE_PROMPT},
-                                {"role": "user", "content": "Transcript:\n{}".format(transcript_text)},
+                                {"role": "user", "content": "YouTube video Title: {}\nYoutube video author: {}\n\nYoutube video transcript:\n{}".format(self.yt_video_details["Title"], self.yt_video_details["Author"], transcript_text)},
                               ],
                               stream=True
                             )
                 print("Youtube streamed report generated successfully")
-                return "SUCCESS", stream_response
+                self.meta_details += "| {} | {} | {} | {} | {} | {} | {} |\n".format(
+                                                                                    self.yt_video_details["Title"],
+                                                                                    self.yt_video_details["Views"],
+                                                                                    self.yt_video_details["Length"],
+                                                                                    self.yt_video_details["Rating"],
+                                                                                    self.yt_video_details["Author"],
+                                                                                    self.yt_video_details["Published Date"],
+                                                                                    self.yt_video_details["Keywords"],
+                                                                                )
+                return "SUCCESS", stream_response, self.meta_details
             except Exception as error:
                 print("LLM based report generation failed. Error: {}".format(str(error)))
-                return "ERROR", "LLM based report generation failed. Please try again!"
+                return "ERROR", "LLM based report generation failed. Please try again!", None
         else:
-            return status, transcript_text
+            return status, transcript_text, None
         
 
