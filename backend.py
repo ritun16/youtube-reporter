@@ -1,11 +1,22 @@
 import os
+import re
 import asyncio
 from openai import AsyncOpenAI
 from pytube import YouTube
 import uuid
+import json
+import traceback
+import random
+import string
+from typing import TypedDict
+from datetime import datetime,timedelta
 
-from prompt import REPORT_GENERATE_PROMPT
+import wikipedia
+
+from prompt import REPORT_GENERATE_PROMPT, TERM_EXTRACTION_PROMPT, TOPIC_PROMPT
 import config as cfg
+
+wikipedia.set_lang("en")
 
 
 class YouTubeReporter(object):
@@ -29,6 +40,21 @@ class YouTubeReporter(object):
         minutes = (seconds % 3600) // 60
         remaining_seconds = seconds % 60
         return "{} hours {} minutes {} seconds".format(hours, minutes, remaining_seconds)
+    
+    async def extract_json_from_string(self, s):
+        pattern = re.compile(r'```json(.*?)```', re.DOTALL)
+        match = pattern.search(s)
+
+        if match:
+            json_str = match.group(1).strip()
+        else:
+            json_str = s.strip()
+
+        try:
+            json_data = json.loads(json_str)
+            return json_data
+        except json.JSONDecodeError:
+            raise ValueError("No valid JSON found in the provided string.")
         
     async def get_transcript(self):
         try:
@@ -59,6 +85,7 @@ class YouTubeReporter(object):
             if os.path.isfile(yt_trans):
                 os.remove(yt_trans)
             print("Youtube video is transcripted successfully!")
+            self.yt_video_details["Transcription Text"] = transcription.text
             return "SUCCESS", transcription.text
         except Exception as error:
             if os.path.isfile(yt_trans):
@@ -91,6 +118,51 @@ class YouTubeReporter(object):
                                                                                 )
                 return "SUCCESS", stream_response, self.meta_details
             except Exception as error:
+                traceback.print_exc()
+                print("LLM based report generation failed. Error: {}".format(str(error)))
+                return "ERROR", "LLM based report generation failed. Please try again!", None
+        else:
+            return status, transcript_text, None
+        
+        
+    async def topic_reports(self):
+        status, transcript_text = await self.get_transcript()
+        topic_streamed_responses = []
+        if status == "SUCCESS":
+            try:
+                term_prompt = TERM_EXTRACTION_PROMPT.format(transcript_text)
+                term_response = await self._client.chat.completions.create(
+                              model=cfg.LLM_NAME,
+                              temperature=cfg.LLM_TEMP,
+                              messages=[
+                                {"role": "system", "content": term_prompt},
+                                
+                              ],
+                              stream=False
+                            )
+                term_dict = await self.extract_json_from_string(term_response.choices[0].message.content)
+                for term in term_dict["terms"]:
+                    wiki_result = wikipedia.search(term, results = 1)
+                    print("WIKI RESULT: ", wiki_result)
+                    try:
+                        wiki_page_object = wikipedia.page(wiki_result[0])
+                        print("wiki_page_object.content", wiki_page_object.content)
+                    except:
+                        continue
+                    topic_report_prompt = TOPIC_PROMPT.format(term, wiki_page_object.content)
+                    topic_streamed_response = await self._client.chat.completions.create(
+                          model=cfg.LLM_NAME,
+                          temperature=cfg.LLM_TEMP,
+                          messages=[
+                            {"role": "system", "content": topic_report_prompt},
+
+                          ],
+                          stream=True
+                        )
+                    topic_streamed_responses.append(topic_streamed_response)
+                return "SUCCESS", topic_streamed_responses, None
+            except Exception as error:
+                traceback.print_exc()
                 print("LLM based report generation failed. Error: {}".format(str(error)))
                 return "ERROR", "LLM based report generation failed. Please try again!", None
         else:
