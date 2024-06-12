@@ -55,3 +55,78 @@ and accuracy. Ensure that it is well-organized and that all markdown formatting 
 Remember, your report should not only summarize the video content but also present it in a
 structured, easy-to-read format. Use markdown formatting effectively to enhance the readability and
 professionalism of your report."""
+
+
+TERM_EXTRACTION_PROMPT = """You are tasked with analyzing a YouTube transcript to identify and list key terms. These terms can
+include technical terms, significant points, important events, names of people, theories, or any
+other critical information mentioned in the transcript. Your goal is to extract these terms without
+providing descriptions or additional context. Maximum 10 key terms. Not more than that.
+
+Here's how you should approach this task:
+
+1. Read through the provided transcript carefully. Pay attention to the context in which words are
+used to determine their importance.
+2. Identify key terms based on the criteria given: technical terms, significant points, important
+events, important names, important theories, or any other critical information.
+3. List down the key terms you identify. Ensure that this list includes only the names or terms
+without any descriptions or explanations.
+4. Your list should be concise and only include words or phrases that are directly mentioned in the
+transcript and are of notable importance.
+
+Please format your response as following JSON:
+
+{{"terms": ["Term 1", "Term 2", "Term 3" ...]}}
+
+This list should be a straightforward enumeration of key terms extracted from the transcript,
+without any additional commentary or detail.
+
+Remember, the focus is on identifying terms that are essential to understanding the content of the
+transcript. This might require you to discern between general conversation and parts of the
+transcript that discuss key concepts or ideas.
+
+<YT_TRANSCRIPT>{}</YT_TRANSCRIPT>
+
+JSON Output: """
+
+
+TOPIC_PROMPT = """Given the task of creating a short summary report about a specific topic based on Wikipedia search
+results, follow these steps:
+
+1. **Read the Topic:**
+Begin by carefully reading the topic provided to you. This will help you understand what information
+you are looking for in the Wikipedia search results.
+
+<topic>
+{}
+</topic>
+
+2. **Review the Wikipedia Search Results:**
+Next, review the Wikipedia search results provided. These results contain various pieces of information
+related to the topic. Your goal is to extract key points, facts, and insights from these results to
+compile a comprehensive summary.
+
+<wikipedia_results>
+{}
+</wikipedia_results>
+
+3. **Create a Summary Report:**
+Based on the information gathered from the Wikipedia search results, create a short summary report about
+the topic. Your report should be concise, informative, and structured. Use markdown format for your
+report to enhance readability and organization.
+
+Here are some markdown formatting guidelines you may use:
+- Use `#` for headings (e.g., `# [Topic]`)
+- Use `##` for subheadings (e.g., `## Key Findings`)
+- Use `-` for bullet points (e.g., `- Fact 1`)
+- Use `**` to bold important points (e.g., `**Important:** This fact is crucial.`)
+
+4. **Add Your Own Insights (Optional):**
+If you feel that the Wikipedia search results are insufficient or lack depth on certain aspects of the
+topic, you are allowed to add your own insights or conclusions to the summary. Make sure these
+additions are clearly marked and justified based on the available information or general knowledge
+about the topic.
+
+5. **Finalize the Summary Report:**
+Once you have compiled all the necessary information and insights, finalize your summary report.
+Ensure that the report is well-organized, covers all relevant aspects of the topic, and adheres to
+the markdown formatting guidelines."""
